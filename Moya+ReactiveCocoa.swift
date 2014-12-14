@@ -7,7 +7,6 @@
 //
 
 import Foundation
-import ReactiveCocoa
 
 public class MoyaResponse {
     public let statusCode: Int

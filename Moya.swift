@@ -83,7 +83,7 @@ public protocol MoyaPath {
 /// Protocol to define the base URL and sample data for an enum.
 public protocol MoyaTarget : MoyaPath {
     var baseURL: NSURL { get }
-    var sampleData: NSData { get }
+//    var sampleData: NSData { get }
 }
 
 /// Request provider class. Requests should be made through this class only.
@@ -110,7 +110,7 @@ public class MoyaProvider<T: MoyaTarget> {
     }
     
     /// Designated request-making method.
-    public func request(token: T, method: Moya.Method, parameters: [String: AnyObject], completion: MoyaCompletion) {
+    public func request(token: T, method: Moya.Method, parameters: [String: AnyObject], completion: MoyaCompletion) -> Request? {
         let endpoint = self.endpoint(token, method: method, parameters: parameters)
         let request = endpointResolver(endpoint: endpoint)
         
@@ -122,30 +122,33 @@ public class MoyaProvider<T: MoyaTarget> {
                 completion(data: nil, statusCode: statusCode, response:nil, error: error)
             }
         } else {
-             Alamofire.Manager.sharedInstance.request(request)
-                .response({(request: NSURLRequest, response: NSHTTPURLResponse?, data: AnyObject?, error: NSError?) -> () in
-                    // Alamofire always sense the data param as an NSData? type, but we'll
-                    // add a check just in case something changes in the future.
-                    let statusCode = response?.statusCode
-                    if let data = data as? NSData {
-                        completion(data: data, statusCode: statusCode, response:response, error: error)
-                    } else {
-                        completion(data: nil, statusCode: statusCode, response:response, error: error)
-                    }
-                })
+            Alamofire.Manager.sharedInstance.startRequestsImmediately = false
+            let thisRequest = Alamofire.Manager.sharedInstance.request(request)
+            thisRequest.response({(request: NSURLRequest, response: NSHTTPURLResponse?, data: AnyObject?, error: NSError?) -> () in
+                // Alamofire always sense the data param as an NSData? type, but we'll
+                // add a check just in case something changes in the future.
+                let statusCode = response?.statusCode
+                if let data = data as? NSData {
+                    completion(data: data, statusCode: statusCode, response:response, error: error)
+                } else {
+                    completion(data: nil, statusCode: statusCode, response:response, error: error)
+                }
+            })
+            return thisRequest
         }
+        return nil
     }
     
-    public func request(token: T, parameters: [String: AnyObject], completion: MoyaCompletion) {
-        request(token, method: Moya.DefaultMethod(), parameters: parameters, completion)
+    public func request(token: T, parameters: [String: AnyObject], completion: MoyaCompletion) -> Request? {
+        return request(token, method: Moya.DefaultMethod(), parameters: parameters, completion)
     }
 
-    public func request(token: T, method: Moya.Method, completion: MoyaCompletion) {
-        request(token, method: method, parameters: Moya.DefaultParameters(), completion)
+    public func request(token: T, method: Moya.Method, completion: MoyaCompletion) -> Request? {
+        return request(token, method: method, parameters: Moya.DefaultParameters(), completion)
     }
     
-    public func request(token: T, completion: MoyaCompletion) {
-        request(token, method: Moya.DefaultMethod(), completion)
+    public func request(token: T, completion: MoyaCompletion) -> Request? {
+        return request(token, method: Moya.DefaultMethod(), completion)
     }
     
     public class func DefaultEnpointResolution() -> MoyaEndpointResolution {
