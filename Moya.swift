@@ -110,44 +110,34 @@ public class MoyaProvider<T: MoyaTarget> {
     }
     
     /// Designated request-making method.
-    public func request(token: T, method: Moya.Method, parameters: [String: AnyObject], completion: MoyaCompletion) -> Request? {
+    public func request(token: T, method: Moya.Method, parameters: [String: AnyObject], completion: MoyaCompletion) -> Request {
         let endpoint = self.endpoint(token, method: method, parameters: parameters)
         let request = endpointResolver(endpoint: endpoint)
         
-        if (stubResponses) {
-            switch endpoint.sampleResponse {
-            case .Success(let statusCode, let data):
-                completion(data: data, statusCode: statusCode, response:nil, error: nil)
-            case .Error(let statusCode, let error):
-                completion(data: nil, statusCode: statusCode, response:nil, error: error)
+        Alamofire.Manager.sharedInstance.startRequestsImmediately = false
+        let thisRequest = Alamofire.Manager.sharedInstance.request(request)
+        thisRequest.response({(request: NSURLRequest, response: NSHTTPURLResponse?, data: AnyObject?, error: NSError?) -> () in
+            // Alamofire always sense the data param as an NSData? type, but we'll
+            // add a check just in case something changes in the future.
+            let statusCode = response?.statusCode
+            if let data = data as? NSData {
+                completion(data: data, statusCode: statusCode, response:response, error: error)
+            } else {
+                completion(data: nil, statusCode: statusCode, response:response, error: error)
             }
-        } else {
-            Alamofire.Manager.sharedInstance.startRequestsImmediately = false
-            let thisRequest = Alamofire.Manager.sharedInstance.request(request)
-            thisRequest.response({(request: NSURLRequest, response: NSHTTPURLResponse?, data: AnyObject?, error: NSError?) -> () in
-                // Alamofire always sense the data param as an NSData? type, but we'll
-                // add a check just in case something changes in the future.
-                let statusCode = response?.statusCode
-                if let data = data as? NSData {
-                    completion(data: data, statusCode: statusCode, response:response, error: error)
-                } else {
-                    completion(data: nil, statusCode: statusCode, response:response, error: error)
-                }
-            })
-            return thisRequest
-        }
-        return nil
+        })
+        return thisRequest
     }
     
-    public func request(token: T, parameters: [String: AnyObject], completion: MoyaCompletion) -> Request? {
+    public func request(token: T, parameters: [String: AnyObject], completion: MoyaCompletion) -> Request {
         return request(token, method: Moya.DefaultMethod(), parameters: parameters, completion)
     }
 
-    public func request(token: T, method: Moya.Method, completion: MoyaCompletion) -> Request? {
+    public func request(token: T, method: Moya.Method, completion: MoyaCompletion) -> Request {
         return request(token, method: method, parameters: Moya.DefaultParameters(), completion)
     }
     
-    public func request(token: T, completion: MoyaCompletion) -> Request? {
+    public func request(token: T, completion: MoyaCompletion) -> Request {
         return request(token, method: Moya.DefaultMethod(), completion)
     }
     
